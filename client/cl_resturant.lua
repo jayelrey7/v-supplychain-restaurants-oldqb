@@ -373,15 +373,19 @@ end)
 
 RegisterNetEvent('v-businesses:OpenTray')
 AddEventHandler('v-businesses:OpenTray', function(info)
-    -- Debugging: Print the type and contents of `info`
     print("Type of info: ", type(info))
-    print("Contents of info: ", json.encode(info)) -- Requires a JSON library or similar for pretty-printing
+    print("Contents of info: ", json.encode(info))
 
     if type(info) == 'table' and info.trayJob and info.trayId then
         local jobName = info.trayJob
         local trayId = info.trayId
-        local stashName = "order-tray-" .. jobName .. "-" .. trayId
-        exports["ox_inventory"]:openInventory('stash', stashName)
+        local stashName = "order_tray_" .. jobName .. "_" .. trayId
+        
+        TriggerServerEvent("inventory:server:OpenInventory", "stash", stashName, {
+            maxweight = 4000000,
+            slots = 50,
+        })
+        TriggerEvent("inventory:client:SetCurrentStash", stashName)
     else
         print("Error: Invalid data received for OpenTray event.")
     end
@@ -389,19 +393,24 @@ end)
 
 RegisterNetEvent('v-businesses:OpenStorage')
 AddEventHandler('v-businesses:OpenStorage', function(info)
-    -- Print type and contents of `info` to diagnose the issue
     print("Type of info: ", type(info))
-    print("Contents of info: ", json.encode(info))  -- Use a JSON library or similar for pretty-printing
+    print("Contents of info: ", json.encode(info))
 
     if type(info) == 'table' and info.storageJob and info.storageId then
         local jobName = info.storageJob
         local storageId = info.storageId
-        local stashName = "storage-" .. jobName .. "-" .. storageId
-        exports["ox_inventory"]:openInventory('stash', stashName)
+        local stashName = "storage_" .. jobName .. "_" .. storageId
+        
+        TriggerServerEvent("inventory:server:OpenInventory", "stash", stashName, {
+            maxweight = 4000000,
+            slots = 50,
+        })
+        TriggerEvent("inventory:client:SetCurrentStash", stashName)
     else
         print("Error: Invalid data received for OpenStorage event.")
     end
 end)
+
 
 RegisterNetEvent('v-businesses:ToggleClockIn', function(info)
     if lib.progressCircle({
@@ -425,17 +434,13 @@ end)
 
 RegisterNetEvent('v-businesses:PrepareFood')
 AddEventHandler('v-businesses:PrepareFood', function(info)
-    -- Check if `info` is a table and contains the expected fields
     if type(info) == 'table' and info.job and info.index then
         local job = info.job
         local index = info.index
         local CookLoco = Businesses.Businesses[job].CookLoco[index]
 
         if not CookLoco then
-            lib.notify({
-                title = 'Invalid Preparation Table',
-                type = 'error'
-            })
+            QBCore.Functions.Notify('Invalid Preparation Table', 'error')
             return
         end
 
@@ -450,7 +455,17 @@ AddEventHandler('v-businesses:PrepareFood', function(info)
                     local itemInfo = QBCore.Shared.Items[req.item]
                     local itemDisplayName = itemInfo and itemInfo.label or req.item
                     requirements = requirements .. req.amount .. "x " .. itemDisplayName .. "\n"
-                    if exports.ox_inventory:GetItemCount(req.item) < req.amount then
+                    
+                    -- Check player inventory using QBCore
+                    local Player = QBCore.Functions.GetPlayerData()
+                    local hasItem = false
+                    for _, playerItem in pairs(Player.items) do
+                        if playerItem and playerItem.name == req.item and playerItem.amount >= req.amount then
+                            hasItem = true
+                            break
+                        end
+                    end
+                    if not hasItem then
                         hasItems = false
                     end
                 end
@@ -458,79 +473,93 @@ AddEventHandler('v-businesses:PrepareFood', function(info)
                 requirements = "Requirements: None"
             end
 
-            local iteminfo = exports.ox_inventory:Items(item.item)
-            local itemName = iteminfo and iteminfo.label or item.item
-            local itemID = iteminfo and iteminfo.name or item.item
+            local itemInfo = QBCore.Shared.Items[item.item]
+            local itemName = itemInfo and itemInfo.label or item.item
+            local itemID = itemInfo and itemInfo.name or item.item
 
             table.insert(options, {
-                title = itemName,
-                description = requirements,
-                image = 'nui://ox_inventory/web/images/' .. itemID .. '.png',
+                header = itemName,
+                txt = requirements,
+                icon = itemID,
                 disabled = not hasItems,
-                event = "btrp-business:inputAmount",
-                args = { iteminfo = item, index = index }
+                params = {
+                    event = "btrp-business:inputAmount",
+                    args = { iteminfo = item, index = index }
+                }
             })
         end
 
-        lib.registerContext({
-            id = 'food_preparation_menu',
-            title = 'Prepare Food',
-            options = options,
-            onExit = function()
-                ClearPedTasks(PlayerPedId())
-            end
-        })
-
-        lib.showContext('food_preparation_menu')
+        exports['qb-menu']:openMenu(options)
+        
     else
         print("Error: Invalid data received for PrepareFood event.")
         print("Received info:", type(info), json.encode(info)) 
     end
 end)
 
+
 RegisterNetEvent('btrp-business:inputAmount', function(info)
     local iteminfo = info.iteminfo
-    local input = lib.inputDialog('Cooking', {
-        { type = 'number', label = 'Food Quantity', description = 'How many would you like to make?', min = 1, max = 10, icon = 'hashtag' }
+    
+    local dialog = exports['qb-input']:ShowInput({
+        header = "Cooking",
+        submitText = "Confirm",
+        inputs = {
+            {
+                text = "Food Quantity (1-10)", 
+                name = "amount", 
+                type = "number", 
+                isRequired = true,
+                default = 1
+            }
+        }
     })
 
-    local quantity = tonumber(input[1])
-
-    if not quantity then
+    if not dialog or not dialog.amount then
         ClearPedTasks(PlayerPedId())
-        lib.notify({
-            title = 'Invalid Input',
-            type = 'error'
-        })
+        QBCore.Functions.Notify('Invalid Input', 'error')
+        return
+    end
+
+    local quantity = tonumber(dialog.amount)
+    if quantity < 1 or quantity > 10 then
+        ClearPedTasks(PlayerPedId())
+        QBCore.Functions.Notify('Invalid quantity. Must be between 1-10', 'error')
         return
     end
 
     local hasAllRequiredItems = true
     local requirements = "Requirements: "
+    local Player = QBCore.Functions.GetPlayerData()
 
     if iteminfo.requiredItems then
         for _, req in pairs(iteminfo.requiredItems) do
             local totalRequired = req.amount * quantity
-            local itemDisplayName = exports.ox_inventory:Items(req.item).label or req.item
+            local itemData = QBCore.Shared.Items[req.item]
+            local itemDisplayName = itemData and itemData.label or req.item
             requirements = requirements .. totalRequired .. "x " .. itemDisplayName .. " "
 
-            if exports.ox_inventory:GetItemCount(req.item) < totalRequired then
+            local hasItem = false
+            for _, item in pairs(Player.items) do
+                if item and item.name == req.item and item.amount >= totalRequired then
+                    hasItem = true
+                    break
+                end
+            end
+            if not hasItem then
                 hasAllRequiredItems = false
             end
         end
     end
 
     if not hasAllRequiredItems then
-        lib.notify({
-            title = 'Insufficient Items',
-            description = 'You do not have enough items. Required: ' .. requirements,
-            type = 'error'
-        })
+        QBCore.Functions.Notify('Insufficient Items - ' .. requirements, 'error')
         return
     end
 
     TriggerEvent('v-businesses:CompletePreparingFood', { iteminfo = iteminfo, index = info.index, quantity = quantity })
 end)
+
 
 RegisterNetEvent('v-businesses:CompletePreparingFood', function(info)
     local iteminfo = info.iteminfo
@@ -803,7 +832,7 @@ AddEventHandler('farming:openFruitMenu', function()
         -- Register and show the menu
         lib.registerContext({
             id = 'farming_fruit_menu_ox',
-            title = 'Fruit Salesman',
+            title = 'Warehouse Saleman',
             options = options
         })
 
