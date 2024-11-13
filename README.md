@@ -1,8 +1,10 @@
 **Preview:**
+This is a link to the main developers youtube on how the script works. I will not be posting any videos on edits made here
 - Check out the scripts in action with my [preview link](https://www.youtube.com/watch?v=q-rLkHe4jzA).
 - MLO USED IN PREVIEW: https://forum.cfx.re/t/release-free-mlo-trucks-job-warehouse/2347310
   
 **Download:**
+this is the main file: 
 - Access the full script package on [GitHub](https://github.com/Virgildev/v-supplychain-restaurants).
 - Warehouse MLO used in preview [here] (https://forum.cfx.re/t/release-free-mlo-trucks-job-warehouse/2347310).
 - Tequi-la-laMLO used in preview [here] (https://www.gta5-mods.com/maps/mlo-underground-box-ring-at-tequilala-sp-fivem).
@@ -32,17 +34,10 @@
 
 **Script Requirements:**
 1. ox_target/qb-target
-2. ox_inventory
+2. qb-inventory
 3. ox_lib
 
 **Support:**
-For any issues or support, feel free to open an issue on my [GitHub repository](https://github.com/Virgildev/v-supplychain-restaurants), below this post or contact me via discord Virgil7399
+I am not an expert, this is my own version of the main github. please do not ask questions or imporvements. It is a work in progress.
 
-|                                         |                                |
-|-------------------------------------|----------------------------|
-| Code is accessible       | Yes                       |
-| Lines (approximately)  | ~2400                  |
-| Requirements                | qb/ox                    |
-| Support                           | Depends              |
 
-# NO THIS WILL NOT BE CONVERTED TO ESX, QBOX HAS ARRIVED!!
