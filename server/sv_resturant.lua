@@ -20,7 +20,7 @@ Citizen.CreateThread(function()
         for trayIndex, _ in pairs(details.trays) do
             local trayId = "order-tray-" .. job .. '-' .. trayIndex
             local trayLabel = "Order Tray - " .. details.jobDisplay .. " - " .. trayIndex
-            exports["ox_inventory"]:RegisterStash(trayId, trayLabel, 10, 50000)
+            TriggerEvent('qb-inventory:server:CreateStash', trayId, trayLabel, 10, 50000)
         end
 
         for storageIndex, storageDetails in pairs(details.storage) do
@@ -28,14 +28,14 @@ Citizen.CreateThread(function()
             local storageLabel = "Storage - " .. details.jobDisplay .. ' - ' .. storageIndex
             local slots = storageDetails.inventory.slots or 6
             local weight = (storageDetails.inventory.weight or 10) * 1000
-            exports["ox_inventory"]:RegisterStash(storageId, storageLabel, slots, weight)
+            TriggerEvent('qb-inventory:server:CreateStash', storageId, storageLabel, slots, weight)
         end
     end
 end)
 
 RegisterServerEvent('v-businesses:GiveItem', function(info)
     local src = source
-    local player = QBCore.Functions.GetPlayer(src)
+    local Player = QBCore.Functions.GetPlayer(src)
     local iteminfo = info.iteminfo
     local quantity = info.quantity or 1
 
@@ -44,7 +44,7 @@ RegisterServerEvent('v-businesses:GiveItem', function(info)
             title = "Invalid item info.",
             type = "error",
             duration = 3000,
-            position = "top-right"
+            position = "top-left"
         })
         return
     end
@@ -54,34 +54,36 @@ RegisterServerEvent('v-businesses:GiveItem', function(info)
             title = "Required items info is not a valid table.",
             type = "error",
             duration = 3000,
-            position = "top-right"
+            position = "top-left"
         })
         return
     end
 
     for _, reqItem in pairs(iteminfo.requiredItems) do
-        local playerItem = player.Functions.GetItemByName(reqItem.item)
+        local playerItem = Player.Functions.GetItemByName(reqItem.item)
         if not playerItem or playerItem.amount < reqItem.amount * quantity then
             TriggerClientEvent('ox_lib:notify', src, {
                 title = "Insufficient required items to craft this item.",
                 type = "error",
                 duration = 3000,
-                position = "top-right"
+                position = "top-left"
             })
             return
         end
     end
 
     for _, reqItem in pairs(iteminfo.requiredItems) do
-        player.Functions.RemoveItem(reqItem.item, reqItem.amount * quantity)
+        Player.Functions.RemoveItem(reqItem.item, reqItem.amount * quantity)
+        TriggerClientEvent('inventory:client:ItemBox', src, QBCore.Shared.Items[reqItem.item], "remove")
     end
 
-    player.Functions.AddItem(iteminfo.item, quantity)
+    Player.Functions.AddItem(iteminfo.item, quantity)
+    TriggerClientEvent('inventory:client:ItemBox', src, QBCore.Shared.Items[iteminfo.item], "add")
 
     TriggerClientEvent('ox_lib:notify', src, {
         title = "Item crafted successfully!",
         type = "success",
         duration = 3000,
-        position = "top-right"
+        position = "top-left"
     })
 end)
