@@ -113,7 +113,7 @@ AddEventHandler('update:stock', function(restaurantId)
             title = 'Error',
             description = 'Invalid restaurant ID for stock update.',
             type = 'error',
-            position = 'top-right',
+            position = 'top-left',
             showDuration = true,
             duration = 10000
         })
@@ -160,7 +160,7 @@ AddEventHandler('update:stock', function(restaurantId)
                     title = 'Stock Updated',
                     description = 'Orders marked as complete and stock updated successfully!',
                     type = 'success',
-                    position = 'top-right',
+                    position = 'top-left',
                     showDuration = true,
                     duration = 10000
                 })
@@ -173,7 +173,7 @@ AddEventHandler('update:stock', function(restaurantId)
                     title = 'Error',
                     description = 'Failed to update stock or mark orders as complete.',
                     type = 'error',
-                    position = 'top-right',
+                    position = 'top-left',
                     showDuration = true,
                     duration = 10000
                 })
@@ -194,7 +194,7 @@ AddEventHandler('pay:driver', function(driverId, amount)
             title = 'Payment Received',
             description = 'You have been paid $' .. amount .. ' for the delivery.',
             type = 'success',
-            position = 'top-right',
+            position = 'top-left',
             showDuration = true,
             duration = 10000
         })
@@ -203,7 +203,7 @@ AddEventHandler('pay:driver', function(driverId, amount)
             title = 'Error',
             description = 'Unable to find the player to process payment.',
             type = 'error',
-            position = 'top-right',
+            position = 'top-left',
             showDuration = true,
             duration = 10000
         })
@@ -414,7 +414,7 @@ AddEventHandler('warehouse:acceptOrder', function(orderId, restaurantId)
                     title = 'Insufficient Stock',
                     description = 'Not enough stock for ' .. order.ingredient .. '.',
                     type = 'error',
-                    position = 'top-right',
+                    position = 'top-left',
                     showDuration = true,
                     duration = 10000
                 })
@@ -428,7 +428,7 @@ AddEventHandler('warehouse:acceptOrder', function(orderId, restaurantId)
                     title = 'Insufficient Stock',
                     description = 'Not enough stock for ' .. order.ingredient .. '.',
                     type = 'error',
-                    position = 'top-right',
+                    position = 'top-left',
                     showDuration = true,
                     duration = 10000
                 })
@@ -464,7 +464,7 @@ AddEventHandler('warehouse:acceptOrder', function(orderId, restaurantId)
                     TriggerClientEvent('ox_lib:notify', workerId, {
                         description = 'Order accepted!',
                         type = 'success',
-                        position = 'top-right',
+                        position = 'top-left',
                         showDuration = true,
                         duration = 10000
                     })
@@ -481,7 +481,7 @@ AddEventHandler('warehouse:denyOrder', function(orderId)
         title = 'Job Denied!',
         description = 'Orders marked as complete and stock updated successfully!',
         type = 'error',
-        position = 'top-right',
+        position = 'top-left',
         showDuration = true,
         duration = 10000
     })
@@ -536,7 +536,7 @@ AddEventHandler('farming:sellFruit', function(fruit, amount, targetCoords)
                 description = 'for $' .. total,
                 type = 'success',
                 duration = 9000,
-                position = 'top-right'
+                position = 'top-left'
             }
             TriggerClientEvent('ox_lib:notify', src, data)
         else
@@ -544,7 +544,7 @@ AddEventHandler('farming:sellFruit', function(fruit, amount, targetCoords)
                 title = 'You don\'t have enough ' .. fruit .. 's',
                 type = 'error',
                 duration = 3000,
-                position = 'top-right'
+                position = 'top-left'
             }
             TriggerClientEvent('ox_lib:notify', src, data)
         end
@@ -553,7 +553,7 @@ AddEventHandler('farming:sellFruit', function(fruit, amount, targetCoords)
             title = 'You don\'t have any ' .. fruit .. 's',
             type = 'error',
             duration = 3000,
-            position = 'top-right'
+            position = 'top-left'
         }
         TriggerClientEvent('ox_lib:notify', src, data)
     end
