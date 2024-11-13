@@ -1,12 +1,15 @@
 fx_version 'cerulean'
 game 'gta5'
 
-author 'Modified for QB'
-description 'Supply Chain System for QB'
+author 'Virgil dawg straight up out the opps hood'
+description 'Supply Chain/Business Script AKA thug asf'
+version '1.0.0'
+
+lua54 'yes'
 
 shared_scripts {
-    '@qb-core/shared/locale.lua',
-    'configs/*.lua'
+    '@ox_lib/init.lua',
+    'configs/*.lua',
 }
 
 client_scripts {
@@ -14,14 +17,8 @@ client_scripts {
 }
 
 server_scripts {
-    '@oxmysql/lib/MySQL.lua',
-    'server/*.lua'
-}
-
-dependencies {
-    'qb-core',
-    'oxmysql',
-    'ox-lib'
+    'server/*.lua',
+    '@oxmysql/lib/MySQL.lua'
 }
 
 
