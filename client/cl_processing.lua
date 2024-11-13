@@ -16,7 +16,7 @@ Citizen.CreateThread(function()
                         type = "client",
                         event = "restaurant:openOrderMenu",
                         icon = 'fas fa-laptop',
-                        label = 'Order Ingredients',
+                        label = 'Order Supplies',
                         restaurantId = id,  
                         job = restaurant.job  
                     }
@@ -33,7 +33,7 @@ Citizen.CreateThread(function()
                     {
                         name = "restaurant_computer_" .. id,
                         icon = 'fas fa-laptop',
-                        label = 'Order Ingredients',
+                        label = 'Order Supplies',
                         onSelect = function()
                             TriggerEvent('restaurant:openOrderMenu', {restaurantId = id})
                         end,
@@ -130,7 +130,7 @@ AddEventHandler('restaurant:openOrderMenu', function(data)
                 title = details.name,
                 description = "Price: $" .. details.price,
                 onSelect = function()
-                    local input = lib.inputDialog('Order Ingredients', {
+                    local input = lib.inputDialog('Order Supplies', {
                         {type = 'number', label = 'Enter Quantity', placeholder = 'Quantity', min = 1, max = 250, required = true}
                     })
 
@@ -154,7 +154,7 @@ AddEventHandler('restaurant:openOrderMenu', function(data)
         -- Register and show the menu
         lib.registerContext({
             id = 'order_menu',
-            title = 'Order Ingredients',
+            title = 'Order Supplies',
             options = options
         })
 
@@ -388,8 +388,8 @@ AddEventHandler('restaurant:showStockDetails', function(stock, restaurantId)
     -- Function to filter stock based on search query and player's inventory
     local function filterStock(query)
         local filteredStock = {}
-        local itemNames = exports.ox_inventory:Items()
-
+        local itemNames = QBCore.Shared.Items
+    
         for ingredient, quantity in pairs(stock) do
             -- Check if the ingredient matches the query
             if string.find(string.lower(ingredient), string.lower(query)) then
@@ -402,9 +402,10 @@ AddEventHandler('restaurant:showStockDetails', function(stock, restaurantId)
                 end
             end
         end
-
+    
         return filteredStock
     end
+    
 
     -- Function to create the menu with the option to search
     local function createMenu(searchQuery)
@@ -510,10 +511,10 @@ AddEventHandler('warehouse:spawnVehicles', function(restaurantId, orders)
     local markerDrawn = false
 
     -- Load models
-    RequestModel(warehouseConfig.truck.model)
-    while not HasModelLoaded(warehouseConfig.truck.model) do
-        Citizen.Wait(100)
-    end
+    --RequestModel(warehouseConfig.truck.model)
+    --while not HasModelLoaded(warehouseConfig.truck.model) do
+        --Citizen.Wait(100)
+    --end
 
     RequestModel(warehouseConfig.trailer.model)
     while not HasModelLoaded(warehouseConfig.trailer.model) do
@@ -521,19 +522,19 @@ AddEventHandler('warehouse:spawnVehicles', function(restaurantId, orders)
     end
 
     -- Spawn truck and trailer
-    local truck = CreateVehicle(warehouseConfig.truck.model, warehouseConfig.truck.position.x, warehouseConfig.truck.position.y, warehouseConfig.truck.position.z, warehouseConfig.truck.position.w, true, false)
+    --local truck = CreateVehicle(warehouseConfig.truck.model, warehouseConfig.truck.position.x, warehouseConfig.truck.position.y, warehouseConfig.truck.position.z, warehouseConfig.truck.position.w, true, false)
     local trailer = CreateVehicle(warehouseConfig.trailer.model, warehouseConfig.trailer.position.x, warehouseConfig.trailer.position.y, warehouseConfig.trailer.position.z, warehouseConfig.trailer.position.w, true, false)
 
     -- Retrieve plates for the vehicles
-    local truckPlate = GetVehicleNumberPlateText(truck)
+    --local truckPlate = GetVehicleNumberPlateText(truck)
     local trailerPlate = GetVehicleNumberPlateText(trailer)
 
     -- Set the owner for the vehicles
-    TriggerEvent("vehiclekeys:client:SetOwner", truckPlate)
+    --TriggerEvent("vehiclekeys:client:SetOwner", truckPlate)
     TriggerEvent("vehiclekeys:client:SetOwner", trailerPlate)
 
     -- Attach trailer to truck
-    AttachVehicleToTrailer(truck, trailer, 50)
+    --AttachVehicleToTrailer(truck, trailer, 50)
 
     DoScreenFadeIn(2500)
 
@@ -556,7 +557,7 @@ AddEventHandler('warehouse:spawnVehicles', function(restaurantId, orders)
         duration = 10000
     })
 
-    TaskWarpPedIntoVehicle(playerPed, truck, -1)
+    TaskWarpPedIntoVehicle(playerPed, trailer, -1)
 
     -- Create a thread to manage the delivery process
     Citizen.CreateThread(function()
@@ -564,7 +565,7 @@ AddEventHandler('warehouse:spawnVehicles', function(restaurantId, orders)
             Citizen.Wait(0)  -- Adjust the wait time to 1000ms (1 second)
 
             local trailerCoords = GetEntityCoords(trailer)
-            local trailerBack = GetOffsetFromEntityInWorldCoords(trailer, 0.0, -5.0, 0.0)
+            local trailerBack = GetOffsetFromEntityInWorldCoords(trailer, 0.0, -8.0, 0.0)
             local distToMarker = Vdist(trailerBack, warehouseConfig.deliveryMarker.position)
 
             DrawMarker(1, warehouseConfig.deliveryMarker.position.x, warehouseConfig.deliveryMarker.position.y, warehouseConfig.deliveryMarker.position.z, 0, 0, 0, 0, 0, 0, warehouseConfig.deliveryMarker.radius, warehouseConfig.deliveryMarker.radius, 1.0, 0, 255, 0, 100, false, true, 2, false, nil, nil, false)
@@ -875,7 +876,7 @@ AddEventHandler('warehouse:startDelivery', function(restaurantId, truck, orders,
     Citizen.CreateThread(function()
         while true do
             Citizen.Wait(0)
-            local truckPos = GetEntityCoords(truck)
+            local truckPos = GetEntityCoords(trailer)
             local distToDelivery = #(truckPos - vector3(deliveryPosition.x, deliveryPosition.y, deliveryPosition.z))
 
             -- Check if the truck is within 10 meters of the delivery position
@@ -929,10 +930,10 @@ AddEventHandler('warehouse:deliverBoxes', function(restaurantId, truck, orders, 
 
     -- Calculate the position at the back of the trailer based on its heading
     local trailerBackPosition = vector3(
-        trailerCoords.x - math.sin(math.rad(trailerHeading)) * 5.0,
-        trailerCoords.y + math.cos(math.rad(trailerHeading)) * 5.0,
-        trailerCoords.z - 1.0  -- Move slightly down
-    )
+    trailerCoords.x + math.sin(math.rad(trailerHeading)) * 7.0, -- Moved back 7 units
+    trailerCoords.y - math.cos(math.rad(trailerHeading)) * -7.0,  -- Moved back 7 units
+    trailerCoords.z + 0.5  -- Keeping the same height
+)
 
     local boxCount = 0
     local maxBoxes = Config.maxBoxes
@@ -949,25 +950,33 @@ AddEventHandler('warehouse:deliverBoxes', function(restaurantId, truck, orders, 
         duration = 10000
     })
 
-    -- Draw markers and handle pickup and delivery
+    -- Pallet spawn position configuration
+    local palletOffset = vector3(0.0, 0.0, 0.0) -- Reduced offset height
+    local palletSpawnPos = vector3(
+    trailerBackPosition.x,
+    trailerBackPosition.y,
+    trailerBackPosition.z
+)
+
+ 
+
     Citizen.CreateThread(function()
-        -- Create a pallet prop at the trailer back position
-        local palletModel = GetHashKey('prop_boxpile_06b')  -- Change to appropriate pallet model
-        RequestModel(palletModel)
-        while not HasModelLoaded(palletModel) do
-            Citizen.Wait(0)
-        end
+    local palletModel = GetHashKey('prop_cs_cardbox_01')
+    RequestModel(palletModel)
+    while not HasModelLoaded(palletModel) do
+        Citizen.Wait(0)
+    end
 
-        palletProp = CreateObject(palletModel, trailerBackPosition.x, trailerBackPosition.y, trailerBackPosition.z, true, true, true)
-        PlaceObjectOnGroundProperly(palletProp)
+    palletProp = CreateObject(palletModel, palletSpawnPos.x, palletSpawnPos.y, palletSpawnPos.z, true, true, true)
+    PlaceObjectOnGroundProperly(palletProp)
 
-        while true do
-            Citizen.Wait(0)
+    while true do
+        Citizen.Wait(0)
 
             -- Draw marker for trailer back location
             DrawMarker(
                 1,
-                trailerBackPosition.x, trailerBackPosition.y, trailerBackPosition.z - 1.0,
+                trailerBackPosition.x, trailerBackPosition.y, trailerBackPosition.z - 0.0,
                 0, 0, 0,
                 0, 0, 0,
                 0.8, 0.8, 1.0,
@@ -1127,7 +1136,7 @@ AddEventHandler('warehouse:deliverBoxes', function(restaurantId, truck, orders, 
                             end
 
                             -- Trigger the event to return the truck
-                            TriggerEvent('warehouse:returnTruck', truck, restaurantId, orders)
+                            TriggerEvent('warehouse:returnTruck', trailer, restaurantId, orders)
 
                             -- Break out of the loop once the delivery is complete
                             break
@@ -1144,7 +1153,7 @@ end)
 
 -- returning the truck
 RegisterNetEvent('warehouse:returnTruck')
-AddEventHandler('warehouse:returnTruck', function(truck, restaurantId, orders)
+AddEventHandler('warehouse:returnTruck', function(trailer, restaurantId, orders)
     lib.alertDialog({
         header = 'Delivery Complete',
         content = 'Great Work! \n Now start to drive back to the warehouse! \n Check your GPS for directions!',
@@ -1153,7 +1162,7 @@ AddEventHandler('warehouse:returnTruck', function(truck, restaurantId, orders)
     })
     --print("Received orders:", json.encode(orders))
     local playerPed = PlayerPedId()
-    local truckReturnPosition = vector3(Config.Warehouses[1].truck.position.x, Config.Warehouses[1].truck.position.y, Config.Warehouses[1].truck.position.z)
+    local truckReturnPosition = vector3(Config.Warehouses[1].trailer.position.x, Config.Warehouses[1].trailer.position.y, Config.Warehouses[1].trailer.position.z)
 
     -- Set GPS route to the truck return location
     SetNewWaypoint(truckReturnPosition.x, truckReturnPosition.y)
@@ -1188,7 +1197,7 @@ AddEventHandler('warehouse:returnTruck', function(truck, restaurantId, orders)
             local playerPos = GetEntityCoords(playerPed)
             local distanceToReturnPos = #(playerPos - vector3(truckReturnPosition.x, truckReturnPosition.y, truckReturnPosition.z))
 
-            if distanceToReturnPos < 2.0 and IsPedInVehicle(playerPed, truck, false) then
+            if distanceToReturnPos < 2.0 and IsPedInVehicle(playerPed, trailer, false) then
                 -- Show the text UI for returning the truck
                 lib.showTextUI('Press [E] to return the truck')
 
@@ -1225,7 +1234,7 @@ AddEventHandler('warehouse:returnTruck', function(truck, restaurantId, orders)
                         RemoveBlip(blip)
 
                         -- Delete the truck
-                        DeleteVehicle(truck)
+                        DeleteVehicle(trailer)
 
                         -- Trigger server event to update stock
                         TriggerServerEvent('update:stock', restaurantId, orders) -- 'all' for all ingredients or specify ingredient
