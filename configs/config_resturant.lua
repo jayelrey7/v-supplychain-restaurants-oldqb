@@ -17,11 +17,12 @@ Businesses.CustomerBillingEvent = "okokBilling:ToggleMyInvoices" -- Event for th
 
 Businesses.Businesses = {
     snapoff = {
-        jobDisplay = "Snap Off", -- The displayed name of the job
+        jobDisplay = "Snap Off",
+        job = "snapoff", -- Add this line with the QB-Core job name
         menu = "",
 
         clockin = {
-            coords = vector4(1209.07, -3157.76, 5.53, 76.08),
+            coords = vector4(-199.41, -1319.82, 31.09, 356.93),
             dimensions = { width = 1.5, length = 0.6, height = 0.6 } -- Dimensions for clockin area
         },
 
@@ -45,7 +46,7 @@ Businesses.Businesses = {
 
         storage = {
             {
-                coords = vector4(1219.35, -3127.18, 5.53, 0.73),
+                coords = vector4(-196.48, -1314.75, 31.28, 353.34),
                 targetLabel = "Open Snap Off Storage",
                 inventory = {
                     slots = 50, -- Number of inventory slots
@@ -58,7 +59,7 @@ Businesses.Businesses = {
 
         CookLoco = {
             {
-                coords = vector4(1208.82, -3112.48, 5.54, 265.21),
+                coords = vector4(-199.87, -1315.29, 31.09, 357.34),
                 targetLabel = "Create Race Materials",
                 dimensions = { width = 1.5, length = 0.6, height = 0.5 },
                 animation = { dict = "mini@repair", name = "fixing_a_ped" },
@@ -181,7 +182,8 @@ Businesses.Businesses = {
     },
     -- Additional businesses can be added here
     tuning = {
-        jobDisplay = "Stop Car Performance", -- The displayed name of the job
+        jobDisplay = "Stop Car Performance",
+        job = "tuning", -- Add this line with the QB-Core job name
         menu = "",
 
         clockin = {
