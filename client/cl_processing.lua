@@ -1,5 +1,11 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 
+local function CheckJobAccess()
+    local PlayerData = QBCore.Functions.GetPlayerData()
+    return PlayerData.job.name == "grime"
+end
+
+
 -- Opening Menu for Ordering Ingredients for Multiple Restaurants
 Citizen.CreateThread(function()
     for id, restaurant in pairs(Config.Restaurants) do
@@ -221,6 +227,7 @@ Citizen.CreateThread(function()
                         event = "warehouse:openProcessingMenu",
                         icon = 'fas fa-box',
                         label = 'Process Orders',
+                        job = "grime" -- Add job restriction here
                     }
                 },
                 distance = 2.5
@@ -237,6 +244,7 @@ Citizen.CreateThread(function()
                         name = "warehouse_processing_" .. tostring(index),
                         icon = 'fas fa-box',
                         label = 'Process Orders',
+                        groups = "grime", -- Add job restriction here
                         onSelect = function()
                             TriggerEvent('warehouse:openProcessingMenu')
                         end
@@ -277,6 +285,15 @@ end)
 -- Open Processing Menu
 RegisterNetEvent('warehouse:openProcessingMenu')
 AddEventHandler('warehouse:openProcessingMenu', function()
+    if not CheckJobAccess() then
+        lib.notify({
+            title = 'Access Denied',
+            description = 'You need to work for Grime to access this.',
+            type = 'error',
+            duration = 5000
+        })
+        return
+    end
    -- print("Opening main menu")
 
     local options = {
@@ -486,6 +503,16 @@ end
 
 RegisterNetEvent('warehouse:spawnVehicles')
 AddEventHandler('warehouse:spawnVehicles', function(restaurantId, orders)
+    -- Add this job check at the start
+    if not CheckJobAccess() then
+        lib.notify({
+            title = 'Access Denied',
+            description = 'You need to work for Grime to access this.',
+            type = 'error',
+            duration = 5000
+        })
+        return
+    end
     -- Get a random inactive warehouse configuration
     local warehouseConfig, warehouseIndex = getRandomInactiveWarehouseConfig()
 
@@ -615,6 +642,22 @@ end)
 -- Warehouse loading event
 RegisterNetEvent('warehouse:loadingWithForklift')
 AddEventHandler('warehouse:loadingWithForklift', function(trailerConfig, deliveryMarkerConfig, truck, restaurantId, orders, trailer)
+    if not CheckJobAccess() then
+        lib.notify({
+            title = 'Access Denied',
+            description = 'You need to work for Grime to access this.',
+            type = 'error',
+            duration = 5000
+        })
+        return
+    end
+
+    lib.alertDialog({
+        header = 'Nice Job!',
+        content = 'Now that the truck is ready to be loaded \n Start picking up the pallets around you and bring them towards the trailer \n Good Luck!',
+        centered = true,
+        cancel = true
+    })
 
     --print('Trailer:'.. trailer)
     lib.alertDialog({
