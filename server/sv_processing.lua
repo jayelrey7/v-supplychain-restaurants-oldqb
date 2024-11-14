@@ -1,12 +1,16 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 
+local function CheckJobAccess(source)
+    local Player = QBCore.Functions.GetPlayer(source)
+    return Player and Player.PlayerData.job.name == "grime"
+end
+
 -- Handle Order Submission
 RegisterNetEvent('restaurant:orderIngredients')
 AddEventHandler('restaurant:orderIngredients', function(ingredient, quantity, restaurantId)
     local playerId = source
-
-    -- Ensure quantity is a number and playerId is valid
     quantity = tonumber(quantity)
+    
     if not quantity or quantity <= 0 then
         TriggerClientEvent('ox_lib:notify', playerId, {
             title = 'Order Error',
@@ -18,7 +22,6 @@ AddEventHandler('restaurant:orderIngredients', function(ingredient, quantity, re
         return
     end
 
-    -- Fetch restaurant-specific items based on the restaurantId
     local restaurantJob = Config.Restaurants[restaurantId] and Config.Restaurants[restaurantId].job
     if not restaurantJob then
         TriggerClientEvent('ox_lib:notify', playerId, {
@@ -36,14 +39,15 @@ AddEventHandler('restaurant:orderIngredients', function(ingredient, quantity, re
 
     if item then
         local totalCost = item.price * quantity
-
-        -- Fetch the player object
         local xPlayer = QBCore.Functions.GetPlayer(playerId)
+        
         if xPlayer then
-            -- Check if player has enough money in their bank
             if xPlayer.PlayerData.money.bank >= totalCost then
-                -- Deduct the amount from the player's bank account
+                -- Remove money from player
                 xPlayer.Functions.RemoveMoney('bank', totalCost, "Ordered ingredients for restaurant")
+                
+                -- Add money to grime job account
+                exports['qb-management']:AddMoney('grime', totalCost)
 
                 MySQL.Async.execute('INSERT INTO orders (owner_id, ingredient, quantity, status, restaurant_id, total_cost) VALUES (@owner_id, @ingredient, @quantity, @status, @restaurant_id, @total_cost)', {
                     ['@owner_id'] = playerId,
@@ -53,7 +57,6 @@ AddEventHandler('restaurant:orderIngredients', function(ingredient, quantity, re
                     ['@restaurant_id'] = restaurantId,
                     ['@total_cost'] = totalCost
                 }, function(rowsChanged)
-                    -- Notify the player about the order status
                     if rowsChanged > 0 then
                         TriggerClientEvent('ox_lib:notify', playerId, {
                             title = 'Order Submitted',
@@ -62,7 +65,6 @@ AddEventHandler('restaurant:orderIngredients', function(ingredient, quantity, re
                             showDuration = true,
                             duration = 10000
                         })
-                        -- Also trigger showing order details on the client side
                         TriggerClientEvent('restaurant:showOrderDetails', playerId, item.name, quantity, totalCost)
                     else
                         TriggerClientEvent('ox_lib:notify', playerId, {
@@ -83,23 +85,7 @@ AddEventHandler('restaurant:orderIngredients', function(ingredient, quantity, re
                     duration = 10000
                 })
             end
-        else
-            TriggerClientEvent('ox_lib:notify', playerId, {
-                title = 'Order Error',
-                description = 'An error occurred while processing your order. Please try again.',
-                type = 'error',
-                showDuration = true,
-                duration = 10000
-            })
         end
-    else
-        TriggerClientEvent('ox_lib:notify', playerId, {
-            title = 'Order Error',
-            description = 'The ingredient you provided is not found. Please check and try again.',
-            type = 'error',
-            showDuration = true,
-            duration = 10000
-        })
     end
 end)
 
@@ -212,6 +198,7 @@ end)
 
 RegisterNetEvent('warehouse:getPendingOrders')
 AddEventHandler('warehouse:getPendingOrders', function()
+    if not CheckJobAccess(source) then return end
     local playerId = source
 
     MySQL.Async.fetchAll('SELECT * FROM orders WHERE status = @status', {
@@ -291,6 +278,7 @@ end)
 
 RegisterNetEvent('warehouse:getStocks')
 AddEventHandler('warehouse:getStocks', function()
+    if not CheckJobAccess(source) then return end
     local playerId = source
     MySQL.Async.fetchAll('SELECT * FROM warehouse_stock', {}, function(results)
         local stock = {}
@@ -384,6 +372,7 @@ end
 
 RegisterNetEvent('warehouse:acceptOrder')
 AddEventHandler('warehouse:acceptOrder', function(orderId, restaurantId)
+    if not CheckJobAccess(source) then return end
     local workerId = source
 
     MySQL.Async.fetchAll('SELECT * FROM orders WHERE id = @id', {
