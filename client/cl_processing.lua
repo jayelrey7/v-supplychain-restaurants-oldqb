@@ -54,11 +54,10 @@ end)
 -- Open Order Menu
 RegisterNetEvent('restaurant:openOrderMenu')
 AddEventHandler('restaurant:openOrderMenu', function(data)
-    -- Get the player's job data
     local PlayerData = QBCore.Functions.GetPlayerData()
     local PlayerJob = PlayerData.job
+    local selectedItems = {} -- Move this outside the createMenu function
 
-    -- Check if the player is the boss
     if not PlayerJob or not PlayerJob.name or not PlayerJob.isboss then 
         lib.notify({
             title = 'Error',
@@ -73,29 +72,31 @@ AddEventHandler('restaurant:openOrderMenu', function(data)
     local restaurantId = data.restaurantId or nil
 
     if type(restaurantId) ~= 'number' and type(restaurantId) ~= 'string' then
-        --print("Error: restaurantId is not a number or string.")
         return
     end
 
     local restaurantJob = Config.Restaurants[restaurantId].job
     local items = Config.Items[restaurantJob] or {}
 
-    -- Function to filter items based on search query
     local function filterItems(query)
         local filteredItems = {}
         for ingredient, details in pairs(items) do
-            if details.name and string.find(string.lower(details.name), string.lower(query)) then
+            if details.name and string.find(string.lower(details.name), string.lower(query or '')) then
                 table.insert(filteredItems, {ingredient = ingredient, details = details})
             end
         end
         return filteredItems
     end
 
-    -- Function to create the menu with the option to search
     local function createMenu(searchQuery)
         local options = {}
+        local hasItems = false
 
-        -- Add the "View Stock" option
+        for _, _ in pairs(selectedItems) do
+            hasItems = true
+            break
+        end
+
         table.insert(options, {
             title = 'View Stock',
             description = 'Check current stock levels.',
@@ -104,60 +105,62 @@ AddEventHandler('restaurant:openOrderMenu', function(data)
             end
         })
 
-        -- Add the search button below "View Stock"
+        table.insert(options, {
+            title = 'Place Order',
+            description = 'Submit order for selected items',
+            disabled = not hasItems,
+            onSelect = function()
+                if not hasItems then return end
+                local orderItems = {}
+                for ingredient, quantity in pairs(selectedItems) do
+                    if quantity > 0 then
+                        table.insert(orderItems, {
+                            ingredient = ingredient,
+                            quantity = quantity
+                        })
+                    end
+                end
+                TriggerServerEvent('restaurant:orderIngredients', orderItems, restaurantId)
+                selectedItems = {}
+                createMenu(searchQuery)
+            end
+        })
+
         table.insert(options, {
             title = 'Search',
             description = 'Search for an ingredient',
             icon = 'fas fa-search',
             onSelect = function()
-                -- Show the input dialog for search
                 local input = lib.inputDialog('Search Ingredients', {
                     { type = 'input', label = 'Enter ingredient name' }
                 })
-                
-                -- If input is not canceled, filter and re-open the menu
                 if input and input[1] then
                     createMenu(input[1])
                 end
             end
         })
 
-        -- Filter and sort items based on the current search query
-        local filteredItems = filterItems(searchQuery or '')
-        table.sort(filteredItems, function(a, b)
-            return a.details.name < b.details.name
-        end)
-
+        local filteredItems = filterItems(searchQuery)
         for _, item in ipairs(filteredItems) do
             local ingredient = item.ingredient
             local details = item.details
 
             table.insert(options, {
                 title = details.name,
-                description = "Price: $" .. details.price,
+                description = string.format("Price: $%d | Selected: %d", details.price, selectedItems[ingredient] or 0),
                 onSelect = function()
                     local input = lib.inputDialog('Order Supplies', {
                         {type = 'number', label = 'Enter Quantity', placeholder = 'Quantity', min = 1, max = 250, required = true}
                     })
 
                     if input and input[1] and tonumber(input[1]) > 0 then
-                        local quantity = tonumber(input[1])
-                        --print("Sending order to server:", ingredient, quantity, restaurantId)
-                        TriggerServerEvent('restaurant:orderIngredients', ingredient, quantity, restaurantId)
-                    else
-                        lib.notify({
-                            title = 'Error',
-                            description = 'Invalid quantity entered.',
-                            type = 'error',
-                            showDuration = true,
-                            duration = 10000
-                        })
+                        selectedItems[ingredient] = tonumber(input[1])
+                        createMenu(searchQuery)
                     end
                 end
             })
         end
 
-        -- Register and show the menu
         lib.registerContext({
             id = 'order_menu',
             title = 'Order Supplies',
@@ -167,9 +170,10 @@ AddEventHandler('restaurant:openOrderMenu', function(data)
         lib.showContext('order_menu')
     end
 
-    -- Create and show the menu initially without any search query
     createMenu()
 end)
+
+
 
 -- Display stock details
 RegisterNetEvent('restaurant:showResturantStock')
@@ -973,8 +977,8 @@ AddEventHandler('warehouse:deliverBoxes', function(restaurantId, truck, orders, 
 
     -- Calculate the position at the back of the trailer based on its heading
     local trailerBackPosition = vector3(
-    trailerCoords.x + math.sin(math.rad(trailerHeading)) * 7.0, -- Moved back 7 units
-    trailerCoords.y - math.cos(math.rad(trailerHeading)) * -7.0,  -- Moved back 7 units
+    trailerCoords.x + math.sin(math.rad(trailerHeading)) * -12.0, -- Moved back 7 units
+    trailerCoords.y - math.cos(math.rad(trailerHeading)) * 0.0,  -- Moved back 7 units
     trailerCoords.z + 0.5  -- Keeping the same height
 )
 
