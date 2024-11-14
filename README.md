@@ -2,6 +2,7 @@
 This is a link to the main developers youtube on how the script works. I will not be posting any videos on edits made here
 - Check out the scripts in action with my [preview link](https://www.youtube.com/watch?v=q-rLkHe4jzA).
 - MLO USED IN PREVIEW: https://forum.cfx.re/t/release-free-mlo-trucks-job-warehouse/2347310
+
   
 **Download:**
 this is the main file: 
@@ -17,6 +18,8 @@ this is the main file:
 ### Warehouse Script
 - **Warehouse Configuration:** Set up and manage warehouses with forklifts, pallets, delivery markers, trucks, and trailers.
 - **Box Carrying:** Customize the prop used for carrying boxes during deliveries to match your server's theme.
+- **job specific** - Grime Job is the only job that can access the menu and accept orders.
+- Only players who are part a business in the business.businesses section can sell items to the sales ped (work in progress)
 
 ### Restaurant Script
 - **Restaurant Management:** Define multiple restaurants with customizable names, job roles, delivery points, and more.
@@ -36,6 +39,39 @@ this is the main file:
 1. ox_target/qb-target
 2. qb-inventory
 3. ox_lib
+
+**Job that goes into your QBcore Shared Jobs File** Must be named grime but you can change the display to whatever you want**
+['grime'] = {
+        label = 'Grime Logistics',
+        defaultDuty = true,
+        grades = {
+            ['0'] = {
+                name = 'Recruit',
+                payment = 1000
+            },
+            ['1'] = {
+                name = 'Employee',
+                payment = 1250
+            },
+            ['2'] = {
+                name = 'Supervisor',
+                payment = 1500
+            },
+            ['3'] = {
+                name = 'Manager',
+                payment = 2000
+            },
+            ['4'] = {
+                name = 'Co-Owner',
+                payment = 2250
+            },
+            ['5'] = {
+                name = 'Owner',
+                isboss = true,
+                payment = 2250
+            },
+        },
+    },
 
 **Support:**
 I am not an expert, this is my own version of the main github. please do not ask questions or imporvements. It is a work in progress.
