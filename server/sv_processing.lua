@@ -5,89 +5,79 @@ local function CheckJobAccess(source)
     return Player and Player.PlayerData.job.name == "grime"
 end
 
--- Handle Order Submission
+-- Handle Order Submission - first change to multiple order
 RegisterNetEvent('restaurant:orderIngredients')
-AddEventHandler('restaurant:orderIngredients', function(ingredient, quantity, restaurantId)
+AddEventHandler('restaurant:orderIngredients', function(orderItems, restaurantId)
     local playerId = source
-    quantity = tonumber(quantity)
+    local totalCost = 0
     
-    if not quantity or quantity <= 0 then
-        TriggerClientEvent('ox_lib:notify', playerId, {
-            title = 'Order Error',
-            description = 'The quantity provided is not valid. Please check and try again.',
-            type = 'error',
-            showDuration = true,
-            duration = 10000
-        })
-        return
-    end
-
+    -- Validate restaurant
     local restaurantJob = Config.Restaurants[restaurantId] and Config.Restaurants[restaurantId].job
     if not restaurantJob then
         TriggerClientEvent('ox_lib:notify', playerId, {
             title = 'Order Error',
-            description = 'The restaurant ID is not valid. Please check and try again.',
+            description = 'Invalid restaurant ID.',
             type = 'error',
-            showDuration = true,
             duration = 10000
         })
         return
     end
 
+    -- Calculate total cost and validate items
     local restaurantItems = Config.Items[restaurantJob] or {}
-    local item = restaurantItems[ingredient]
-
-    if item then
-        local totalCost = item.price * quantity
-        local xPlayer = QBCore.Functions.GetPlayer(playerId)
-        
-        if xPlayer then
-            if xPlayer.PlayerData.money.bank >= totalCost then
-                -- Remove money from player
-                xPlayer.Functions.RemoveMoney('bank', totalCost, "Ordered ingredients for restaurant")
-                
-                -- Add money to grime job account
-                exports['qb-management']:AddMoney('grime', totalCost)
-
-                MySQL.Async.execute('INSERT INTO orders (owner_id, ingredient, quantity, status, restaurant_id, total_cost) VALUES (@owner_id, @ingredient, @quantity, @status, @restaurant_id, @total_cost)', {
-                    ['@owner_id'] = playerId,
-                    ['@ingredient'] = item.name,
-                    ['@quantity'] = quantity,
-                    ['@status'] = 'pending',
-                    ['@restaurant_id'] = restaurantId,
-                    ['@total_cost'] = totalCost
-                }, function(rowsChanged)
-                    if rowsChanged > 0 then
-                        TriggerClientEvent('ox_lib:notify', playerId, {
-                            title = 'Order Submitted',
-                            description = string.format('You have successfully ordered %d of %s. Total cost: $%d', quantity, item.name, totalCost),
-                            type = 'success',
-                            showDuration = true,
-                            duration = 10000
-                        })
-                        TriggerClientEvent('restaurant:showOrderDetails', playerId, item.name, quantity, totalCost)
-                    else
-                        TriggerClientEvent('ox_lib:notify', playerId, {
-                            title = 'Order Error',
-                            description = 'An error occurred while processing your order. Please try again.',
-                            type = 'error',
-                            showDuration = true,
-                            duration = 10000
-                        })
-                    end
-                end)
-            else
-                TriggerClientEvent('ox_lib:notify', playerId, {
-                    title = 'Insufficient Funds',
-                    description = 'You do not have enough money in your bank account to complete this order.',
-                    type = 'error',
-                    showDuration = true,
-                    duration = 10000
-                })
-            end
+    local orderDetails = {}
+    
+    for _, orderItem in pairs(orderItems) do
+        local item = restaurantItems[orderItem.ingredient]
+        if item and tonumber(orderItem.quantity) > 0 then
+            local itemCost = item.price * orderItem.quantity
+            totalCost = totalCost + itemCost
+            table.insert(orderDetails, {
+                name = item.name,
+                quantity = orderItem.quantity,
+                cost = itemCost
+            })
         end
     end
+
+    local xPlayer = QBCore.Functions.GetPlayer(playerId)
+    if xPlayer and xPlayer.PlayerData.money.bank >= totalCost then
+        -- Process payment
+        xPlayer.Functions.RemoveMoney('bank', totalCost, "Multiple ingredients order")
+        exports['qb-management']:AddMoney('grime', totalCost)
+
+        -- Insert orders
+        for _, detail in pairs(orderDetails) do
+            MySQL.Async.execute('INSERT INTO orders (owner_id, ingredient, quantity, status, restaurant_id, total_cost) VALUES (@owner_id, @ingredient, @quantity, @status, @restaurant_id, @total_cost)', {
+                ['@owner_id'] = playerId,
+                ['@ingredient'] = detail.name,
+                ['@quantity'] = detail.quantity,
+                ['@status'] = 'pending',
+                ['@restaurant_id'] = restaurantId,
+                ['@total_cost'] = detail.cost
+            })
+        end
+
+        -- Send success notification
+        TriggerClientEvent('ox_lib:notify', playerId, {
+            title = 'Orders Submitted',
+            description = string.format('Total cost: $%d', totalCost),
+            type = 'success',
+            duration = 10000
+        })
+        
+        -- Show order details to client
+        TriggerClientEvent('restaurant:showOrderDetails', playerId, orderDetails, totalCost)
+    else
+        TriggerClientEvent('ox_lib:notify', playerId, {
+            title = 'Insufficient Funds',
+            description = string.format('You need $%d to place this order.', totalCost),
+            type = 'error',
+            duration = 10000
+        })
+    end
 end)
+
 
 -- Server-side: Update stock and pay driver
 RegisterNetEvent('update:stock')
