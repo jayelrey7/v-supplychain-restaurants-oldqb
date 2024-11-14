@@ -28,12 +28,12 @@ Config.Restaurants = {
         heading = 64.59
     },
     [2] = {
-        name = "Snap Off Tools and Logistics",
+        name = "Snap Off Tools",
         job = "snapoff",
-        position = vector3(1209.99, -3158.46, 5.53), -- Adjust as needed
-        delivery = vector3(1246.68, -3162.5, 5.66),
-        deliveryFoot = vector3(1240.62, -3161.8, 7.1),
-        heading = 106.5
+        position = vector3(-216.37, -1319.01, 30.89), -- Adjust as needed
+        delivery = vector3(-185.55, -1335.05, 31.3),
+        deliveryFoot = vector3(-186.35, -1325.5, 31.33),
+        heading = 96.41
     },
     -- add more here
 }
@@ -50,46 +50,39 @@ Config.WarehousesLocation = {
 -- Warehouse Configuration
 Config.Warehouses = {
     {
+        job = "grime",  -- Added job requirement
         forkliftPosition = vector3(1225.97, -3188.33, 5.52),
         pallets = {
             vector3(1220.43, -3188.02, 4.52),
             vector3(1219.50, -3182.24, 4.52),
             vector3(1221.62, -3195.49, 4.52)
         },
-        deliveryMarker = { -- Delivery marker for Warehouse 1
+        deliveryMarker = {
             position = vector3(1238.0282, -3155.8708, 6.0997),
             radius = 4.0
         },
-        --truck = {
-        --    model = 'W900',
-        --    position = vector4(1290.1298, -3134.9062, 5.9064, 358.0195) -- Adjust as needed
-        --},
         trailer = {
             model = 'pounder2',
-            position = vector4(1289.5369, -3153.1648, 5.9064, 359.3230) -- Adjust as needed
+            position = vector4(1289.5369, -3153.1648, 5.9064, 359.3230)
         }
     },
     {
+        job = "grime",  -- Added job requirement
         forkliftPosition = vector3(1226.6061, -3130.2217, 5.5277),
         pallets = {
             vector3(1221.4413, -3133.3848, 4.5277),
             vector3(1221.3192, -3129.9758, 4.5277),
             vector3(1218.3257, -3131.8977, 4.5277)
         },
-        deliveryMarker = { -- Delivery marker for Warehouse 2
-            position = vector3(1237.7931, -3135.7043, 6.0997), -- Example position for Warehouse 2 delivery
+        deliveryMarker = {
+            position = vector3(1237.7931, -3135.7043, 6.0997),
             radius = 7.0
         },
-        --truck = {
-        --    model = 'W900',
-        --    position = vector4(1290.1298, -3134.9062, 5.9064, 358.0195) -- Adjust as needed
-        --},
         trailer = {
             model = 'pounder2',
-            position = vector4(1289.5369, -3153.1648, 5.9064, 359.3230) -- Adjust as needed
+            position = vector4(1289.5369, -3153.1648, 5.9064, 359.3230)
         }
     }
-    -- Add more warehouses as needed
 }
 
 Config.maxBoxes = math.random(5,8) -- Max amount of boxes the player has to drag inside, you can easily make it a math.random - example: Config.maxBoxes = math.random(3,5)
