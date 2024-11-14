@@ -40,6 +40,13 @@ this is the main file:
 2. qb-inventory
 3. ox_lib
 
+
+
+**noted changes**
+Order system by businesses: you can order one product or more than one different product in a single order
+truck trailer switched to single box truck
+**spawn of pallet changed to box - WIP**
+
 **Job that goes into your QBcore Shared Jobs File** Must be named grime but you can change the display to whatever you want**
 ['grime'] = {
         label = 'Grime Logistics',
