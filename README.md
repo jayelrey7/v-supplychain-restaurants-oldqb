@@ -83,4 +83,7 @@ truck trailer switched to single box truck
 **Support:**
 I am not an expert, this is my own version of the main github. please do not ask questions or improvements or to fix bugs. It is a work in progress.
 
+**CREDIT**
+Credit to Virgildev for an awesome script.
+
 
