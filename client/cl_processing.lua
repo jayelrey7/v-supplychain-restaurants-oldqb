@@ -972,65 +972,109 @@ AddEventHandler('warehouse:deliverBoxes', function(restaurantId, truck, orders, 
 
     local playerPed = PlayerPedId()
     local deliveryFootPosition = Config.Restaurants[restaurantId].deliveryFoot
-    local trailerCoords = GetEntityCoords(trailer)
-    local trailerHeading = GetEntityHeading(trailer)
-
-    -- Calculate the position at the back of the trailer based on its heading
-    local trailerBackPosition = vector3(
-    trailerCoords.x + math.sin(math.rad(trailerHeading)) * -12.0, -- Moved back 7 units
-    trailerCoords.y - math.cos(math.rad(trailerHeading)) * 0.0,  -- Moved back 7 units
-    trailerCoords.z + 0.5  -- Keeping the same height
-)
-
     local boxCount = 0
     local maxBoxes = Config.maxBoxes
     local hasBox = false
     local boxProp = nil
-    local palletProp = nil
 
     -- Notify the player that they can start delivering boxes
     lib.notify({
         title = 'Delivery Location Reached',
         description = 'You can now pick up the boxes and deliver them.',
         type = 'success',
-        showDuration = true,
         duration = 10000
     })
 
-    -- Pallet spawn position configuration
-    local palletOffset = vector3(0.0, 0.0, 0.0) -- Reduced offset height
-    local palletSpawnPos = vector3(
-    trailerBackPosition.x,
-    trailerBackPosition.y,
-    trailerBackPosition.z
-)
-
- 
-
-    Citizen.CreateThread(function()
-    local palletModel = GetHashKey('prop_cs_cardbox_01')
-    RequestModel(palletModel)
-    while not HasModelLoaded(palletModel) do
-        Citizen.Wait(0)
+    -- Add target system for box pickup
+    if Config.Target == 'qb' then
+        exports['qb-target']:AddTargetEntity(trailer, {
+            options = {
+                {
+                    type = "client",
+                    event = "warehouse:pickupBox",
+                    icon = "fas fa-box",
+                    label = "Pick Up Box",
+                    canInteract = function()
+                        return not hasBox
+                    end
+                }
+            },
+            distance = 2.0
+        })
+    elseif Config.Target == 'ox' then
+        exports.ox_target:addLocalEntity(trailer, {
+            {
+                name = 'pickup_box',
+                icon = 'fas fa-box',
+                label = 'Pick Up Box',
+                canInteract = function()
+                    return not hasBox
+                end,
+                onSelect = function()
+                    TriggerEvent('warehouse:pickupBox')
+                end
+            }
+        })
     end
 
-    palletProp = CreateObject(palletModel, palletSpawnPos.x, palletSpawnPos.y, palletSpawnPos.z, true, true, true)
-    PlaceObjectOnGroundProperly(palletProp)
+    -- Box pickup event handler
+    RegisterNetEvent('warehouse:pickupBox')
+    AddEventHandler('warehouse:pickupBox', function()
+        if lib.progressCircle({
+            duration = 3000,
+            position = 'bottom',
+            label = 'Unloading Box...',
+            canCancel = false,
+            disable = {
+                move = true,
+                car = true,
+                combat = true,
+                sprint = true,
+            },
+            anim = {
+                dict = 'mini@repair',
+                clip = 'fixing_a_ped'
+            }
+        }) then
+            local model = GetHashKey(Config.CarryBoxProp)
+            RequestModel(model)
+            while not HasModelLoaded(model) do
+                Citizen.Wait(0)
+            end
 
-    while true do
-        Citizen.Wait(0)
+            local coords = GetEntityCoords(playerPed)
+            boxProp = CreateObject(model, coords.x, coords.y, coords.z, true, true, true)
 
-            -- Draw marker for trailer back location
-            DrawMarker(
-                1,
-                trailerBackPosition.x, trailerBackPosition.y, trailerBackPosition.z - 0.0,
-                0, 0, 0,
-                0, 0, 0,
-                0.8, 0.8, 1.0,
-                255, 0, 0, 100,
-                false, true, 2,
-                false, nil, nil, false
+            AttachEntityToEntity(boxProp, playerPed, GetPedBoneIndex(playerPed, 60309),
+                0.1, 0.2, 0.25,
+                -90.0, 0.0, 0.0,
+                true, true, false, true, 1, true
             )
+
+            hasBox = true
+
+            local animDict = "anim@heists@box_carry@"
+            local animName = "idle"
+            RequestAnimDict(animDict)
+            while not HasAnimDictLoaded(animDict) do
+                Citizen.Wait(0)
+            end
+
+            TaskPlayAnim(playerPed, animDict, animName, 8.0, -8.0, -1, 50, 0, false, false, false)
+
+            lib.notify({
+                title = 'Box Picked Up',
+                description = 'Deliver the box to the marked location.',
+                type = 'info',
+                duration = 5000
+            })
+        end
+    end)
+
+    -- Delivery spot logic thread
+    Citizen.CreateThread(function()
+        while true do
+            Citizen.Wait(0)
 
             -- Draw marker for delivery spot
             DrawMarker(
@@ -1046,91 +1090,15 @@ AddEventHandler('warehouse:deliverBoxes', function(restaurantId, truck, orders, 
 
             local playerCoords = GetEntityCoords(playerPed)
 
-            -- Check if player is near the box pickup location
-            if #(playerCoords - trailerBackPosition) < 2.0 then
-                if not hasBox then
-                    -- Show the text UI for picking up the box
-                    lib.showTextUI('[E] Pick Up Box')
-                end
-
-                if IsControlJustReleased(0, 38) then -- E key
-                    -- Hide the text UI when the action starts
-                    lib.hideTextUI()
-
-                    -- Start progress circle for picking up the box
-                    if lib.progressCircle({
-                        duration = 3000, -- 3 seconds to pick up a box
-                        position = 'bottom',
-                        label = 'Unloading Box...',
-                        canCancel = false,
-                        disable = {
-                            move = true,
-                            car = true,
-                            combat = true,
-                            sprint = true,
-                        },
-                        anim = {
-                            dict = 'mini@repair',
-                            clip = 'fixing_a_ped'
-                        }
-                    }) then
-                        -- Create a box prop and attach it to the player
-                        local model = GetHashKey(Config.CarryBoxProp)
-                        RequestModel(model)
-                        while not HasModelLoaded(model) do
-                            Citizen.Wait(0)
-                        end
-
-                        local coords = GetEntityCoords(playerPed)
-                        boxProp = CreateObject(model, coords.x, coords.y, coords.z, true, true, true)
-
-                        -- Attach the box to the player's hand (bone index 60309)
-                        AttachEntityToEntity(boxProp, playerPed, GetPedBoneIndex(playerPed, 60309), 
-                            0.1, 0.2, 0.25,  -- Position offsets
-                            -90.0, 0.0, 0.0,  -- Rotation
-                            true, true, false, true, 1, true
-                        )
-
-                        -- Set flag indicating the player has a box
-                        hasBox = true
-
-                        -- Play the carrying animation
-                        local animDict = "anim@heists@box_carry@"
-                        local animName = "idle"
-                        RequestAnimDict(animDict)
-                        while not HasAnimDictLoaded(animDict) do
-                            Citizen.Wait(0)
-                        end
-
-                        TaskPlayAnim(playerPed, animDict, animName, 8.0, -8.0, -1, 50, 0, false, false, false)
-
-                        -- Notify player to deliver the box
-                        lib.notify({
-                            title = 'Box Picked Up',
-                            description = 'Deliver the box to the marked location.',
-                            type = 'info',
-                            showDuration = true,
-                            duration = 10000
-                        })
-                    end
-                end
-            elseif hasBox then
-                -- Hide the text UI if the player is not in range and has a box
-                lib.hideTextUI()
-            end
-
             -- Check if player is near the delivery location
             if #(playerCoords - deliveryFootPosition) < 2.0 and hasBox then
-                -- Show the text UI for delivering the box
                 lib.showTextUI('[E] Deliver Box')
 
-                if IsControlJustReleased(0, 38) then -- E key
-                    -- Hide the text UI when the action starts
+                if IsControlJustReleased(0, 38) then
                     lib.hideTextUI()
 
-                    -- Start progress circle for delivering the box
                     if lib.progressCircle({
-                        duration = 3000, -- 3 seconds to deliver the box
+                        duration = 3000,
                         position = 'bottom',
                         label = 'Delivering Package...',
                         canCancel = false,
@@ -1145,7 +1113,6 @@ AddEventHandler('warehouse:deliverBoxes', function(restaurantId, truck, orders, 
                             clip = 'fixing_a_ped'
                         }
                     }) then
-                        -- Remove the box prop and reset the state
                         if boxProp then
                             DeleteObject(boxProp)
                             boxProp = nil
@@ -1153,50 +1120,43 @@ AddEventHandler('warehouse:deliverBoxes', function(restaurantId, truck, orders, 
                         hasBox = false
                         boxCount = boxCount + 1
 
-                        -- Clear animation
                         ClearPedTasks(playerPed)
 
-                        -- Notify player to return and pick up the next box
-                        lib.notify({
-                            title = 'Box Delivered',
-                            description = 'Return to the truck and pick up the next box.',
-                            type = 'success',
-                            showDuration = true,
-                            duration = 10000
-                        })
-
-                        -- Check if all boxes are delivered
                         if boxCount >= maxBoxes then
-                            -- Notify player that delivery is complete
                             lib.notify({
                                 title = 'Delivery Complete',
                                 description = 'You have delivered all boxes. Return the truck to the warehouse.',
                                 type = 'success',
-                                showDuration = true,
                                 duration = 10000
                             })
 
-                            -- Remove the pallet prop
-                            if palletProp then
-                                DeleteObject(palletProp)
-                                palletProp = nil
+                            -- Remove target zones when complete
+                            if Config.Target == 'qb' then
+                                exports['qb-target']:RemoveTargetEntity(trailer)
+                            elseif Config.Target == 'ox' then
+                                exports.ox_target:removeLocalEntity(trailer)
                             end
 
-                            -- Trigger the event to return the truck
                             TriggerEvent('warehouse:returnTruck', trailer, restaurantId, orders)
-
-                            -- Break out of the loop once the delivery is complete
                             break
+                        else
+                            lib.notify({
+                                title = 'Box Delivered',
+                                description = 'Return to the truck and pick up the next box.',
+                                type = 'success',
+                                duration = 10000
+                            })
                         end
                     end
                 end
             elseif hasBox then
-                -- Hide the text UI if the player is not in range and has a box
                 lib.hideTextUI()
             end
         end
     end)
 end)
+
+
 
 -- returning the truck
 RegisterNetEvent('warehouse:returnTruck')
