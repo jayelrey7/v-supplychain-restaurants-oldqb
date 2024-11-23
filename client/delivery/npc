@@ -1,0 +1,38 @@
+local QBCore = exports['qb-core']:GetCoreObject()
+local isInJob = false
+
+local jobNPC = {
+    model = "s_m_y_dockwork_01",
+    coords = vector4(1231.19, -3198.96, 5.53, 319.6)
+}
+
+CreateThread(function()
+    RequestModel(GetHashKey(jobNPC.model))
+    while not HasModelLoaded(GetHashKey(jobNPC.model)) do Wait(1) end
+    
+    local jobPed = CreatePed(4, jobNPC.model, jobNPC.coords.x, jobNPC.coords.y, jobNPC.coords.z-1, jobNPC.coords.w, false, true)
+    FreezeEntityPosition(jobPed, true)
+    SetEntityInvincible(jobPed, true)
+    SetBlockingOfNonTemporaryEvents(jobPed, true)
+    
+    local pedNetId = NetworkGetNetworkIdFromEntity(jobPed)
+    SetNetworkIdCanMigrate(pedNetId, false)
+    
+    exports['qb-target']:AddTargetEntity(jobPed, {
+        options = {
+            {
+                type = "client",
+                event = "container:startJob",
+                icon = "fas fa-truck",
+                label = "Start Container Work",
+                canInteract = function()
+                    return not isInJob
+                end
+            }
+        },
+        distance = 2.5
+    })
+end)
+
+
+
