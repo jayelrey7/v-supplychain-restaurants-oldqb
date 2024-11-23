@@ -20,6 +20,7 @@ this is the main file:
 - **Box Carrying:** Customize the prop used for carrying boxes during deliveries to match your server's theme.
 - **job specific** - Grime Job is the only job that can access the menu and accept orders.
 - Only players who are part a business in the business.businesses section can sell items to the sales ped (work in progress)
+- **Container Delivery** option to do container deliveries around the dock with a handler for small amounts of cash
 
 ### Restaurant Script
 - **Restaurant Management:** Define multiple restaurants with customizable names, job roles, delivery points, and more.
