@@ -1,0 +1,583 @@
+local QBCore = exports['qb-core']:GetCoreObject()
+local isAttached = false
+local isInJob = false
+local deliveryCount = 0
+local handlerVehicle = nil
+isProcessingDelivery = false
+currentContainer = nil
+local basePayment = 500
+local bonusTimeLimit = 300
+local startTime = 0
+local handlerSpawnPoint = vector4(1275.38, -3231.28, 5.9, 95.02)
+
+
+
+local containerTypes = {
+    {model = "prop_contr_03b_ld", name = "Standard Container", payment = 125},
+    {model = "prop_contr_03b_ld", name = "Heavy Container", payment = 250},
+    {model = "prop_contr_03b_ld", name = "Special Container", payment = 375}
+}
+
+local containerHealth = 1000
+local damageMultiplier = 0.5
+
+local containerSpawnPoints = {
+    vector4(1136.94, -3293.77, 5.9, 180.03),
+    vector4(1053.15, -3237.36, 5.89, 184.48),
+    vector4(1092.24, -3107.24, 5.9, 357.25),
+    vector4(1085.71, -3025.43, 5.9, 275.09),
+    vector4(943.95, -3075.4, 8.69, 269.4),
+    vector4(996.03, -3074.64, 8.71, 271.72),
+    vector4(987.59, -2976.37, 5.9, 353.93),
+    vector4(960.17, -2942.35, 5.9, 86.99),
+    vector4(1087.45, -2974.11, 5.9, 270.15)
+}
+
+local deliveryPoints = {
+    vector4(1214.78, -2978.98, 5.87, 178.13),
+    vector4(1275.13, -3106.94, 7.49, 178.13)
+}
+
+RegisterNetEvent('container:processDelivery', function()
+    isProcessingDelivery = true
+    
+    local deliveryTime = (GetGameTimer() - startTime) / 1000
+    local containerType = Entity(currentContainer).state.containerType
+    local health = Entity(currentContainer).state.health
+    local payment = CalculatePayment(deliveryTime, containerType, health)
+    
+    -- Inspection chance (30%)
+    if math.random() < 0.3 then
+        lib.notify({
+            title = 'Container Inspection Required',
+            description = 'Additional inspection needed',
+            type = 'inform'
+        })
+        
+        RequestAnimDict("amb@world_human_clipboard@male@base")
+        while not HasAnimDictLoaded("amb@world_human_clipboard@male@base") do
+            Wait(10)
+        end
+        
+        TaskPlayAnim(PlayerPedId(), "amb@world_human_clipboard@male@base", "base", 2.0, 2.0, -1, 51, 0, false, false, false)
+        
+        lib.progressCircle({
+            duration = 15000,
+            label = 'Inspecting Container...',
+            position = 'bottom',
+            useWhileDead = false,
+            canCancel = false,
+            disable = {
+                car = true,
+                move = true,
+            },
+        })
+        
+        payment = payment + 250 -- Bonus for inspection
+    end
+    
+    -- Regular processing
+    RequestAnimDict("amb@world_human_clipboard@male@base")
+    while not HasAnimDictLoaded("amb@world_human_clipboard@male@base") do
+        Wait(10)
+    end
+    
+    TaskPlayAnim(PlayerPedId(), "amb@world_human_clipboard@male@base", "base", 2.0, 2.0, -1, 51, 0, false, false, false)
+    
+    lib.progressCircle({
+        duration = 5000,
+        label = 'Processing Container...',
+        position = 'bottom',
+        useWhileDead = false,
+        canCancel = false,
+        disable = {
+            car = true,
+            move = true,
+        },
+    })
+    
+    ClearPedTasks(PlayerPedId())
+    DeleteEntity(currentContainer)
+    deliveryCount = deliveryCount + 1
+    
+    TriggerServerEvent('container:receivePay', payment)
+    
+    if deliveryCount >= maxDeliveries then
+        lib.notify({
+            title = 'Job Complete',
+            description = 'Return the handler to the depot',
+            type = 'inform'
+        })
+    else
+        Wait(1000)
+        SpawnContainer()
+    end
+    
+    isProcessingDelivery = false
+end)
+
+
+-- Core Functions
+function IsHandlerFrameAboveContainer(vehicle, container)
+    local vehCoords = GetEntityCoords(vehicle)
+    local containerCoords = GetEntityCoords(container)
+    local distance = #(vehCoords - containerCoords)
+    
+    if distance <= 7.0 then  -- Increased detection range
+        local vehHeight = vehCoords.z
+        local containerHeight = containerCoords.z
+        if math.abs(vehHeight - containerHeight) < 4.0 then  -- Increased height tolerance
+            return 1
+        end
+    end
+    return 0
+end
+
+function AttachContainerToHandlerFrame(vehicle, container)
+    Citizen.InvokeNative(0x6A98C2ECF57FA5D4, vehicle, container)
+    SetEntityCollision(container, false, true)
+end
+
+
+
+
+
+
+
+
+function DetachContainerFromHandlerFrame(vehicle)
+    local container = currentContainer
+    if DoesEntityExist(container) then
+        DetachEntity(container, true, true)
+        SetEntityCollision(container, true, true)
+        PlaceObjectOnGroundProperly(container)
+    end
+end
+
+
+-- Container Target Setup
+local function SetupContainerTarget()
+    exports['qb-target']:AddTargetEntity(currentContainer, {
+        options = {
+            {
+                type = "client",
+                event = "container:processDelivery",
+                icon = "fas fa-box",
+                label = "Process Container Delivery",
+                canInteract = function()
+                    return not IsPedInAnyVehicle(PlayerPedId(), false) and not isProcessingDelivery
+                end
+            }
+        },
+        distance = 3.0
+    })
+end
+
+-- Waypoint Functions
+SetContainerWaypoint = function(coords)
+    SetNewWaypoint(coords.x, coords.y)
+    lib.notify({
+        title = 'Navigation',
+        description = 'Waypoint set to next container',
+        type = 'inform'
+    })
+end
+
+local function SetDeliveryWaypoint()
+    local deliveryPoint = deliveryPoints[math.random(#deliveryPoints)]
+    SetNewWaypoint(deliveryPoint.x, deliveryPoint.y)
+    lib.notify({
+        title = 'Delivery Location Set',
+        description = 'Follow the waypoint to deliver the container',
+        type = 'inform'
+    })
+end
+
+-- Container Spawning and Payment
+SpawnContainer = function()
+    local spawnPoint = containerSpawnPoints[math.random(#containerSpawnPoints)]
+    local selectedContainer = containerTypes[math.random(#containerTypes)]
+    local model = GetHashKey(selectedContainer.model)
+    
+    RequestModel(model)
+    while not HasModelLoaded(model) do Wait(1) end
+    
+    currentContainer = CreateObject(model, spawnPoint.x, spawnPoint.y, spawnPoint.z, true, false, false)
+    SetEntityHeading(currentContainer, spawnPoint.w)
+    PlaceObjectOnGroundProperly(currentContainer)
+    
+    Wait(500)
+    local containerCoords = GetEntityCoords(currentContainer)
+    
+    Entity(currentContainer).state.containerType = selectedContainer
+    Entity(currentContainer).state.health = containerHealth
+    
+    local blip = AddBlipForEntity(currentContainer)
+    SetBlipSprite(blip, 478)
+    SetBlipColour(blip, 5)
+    SetBlipScale(blip, 0.8)
+    SetBlipAsShortRange(blip, true)
+    BeginTextCommandSetBlipName("STRING")
+    AddTextComponentString(selectedContainer.name)
+    EndTextCommandSetBlipName(blip)
+    
+    startTime = GetGameTimer()
+    SetContainerWaypoint(containerCoords)
+    
+    if math.random() < 0.2 then
+        TriggerRandomEvent()
+    end
+end
+
+function CalculatePayment(deliveryTime, containerType, health)
+    local payment = containerType.payment
+    
+    if deliveryTime < bonusTimeLimit then
+        local timeBonus = math.floor((bonusTimeLimit - deliveryTime) * 2)
+        payment = payment + timeBonus
+    end
+    
+    local healthPercentage = health / 1000
+    payment = payment * healthPercentage
+    
+    return math.floor(payment)
+end
+
+function EndDeliveryJob()
+    if DoesEntityExist(handlerVehicle) then
+        local handlerCoords = GetEntityCoords(handlerVehicle)
+        local distance = #(handlerCoords - vector3(handlerSpawnPoint.x, handlerSpawnPoint.y, handlerSpawnPoint.z))
+        
+        if distance < 5.0 then
+            DeleteEntity(handlerVehicle)
+            isInJob = false
+            lib.notify({
+                title = 'Job Completed',
+                description = string.format('Completed %d deliveries', deliveryCount),
+                type = 'success'
+            })
+        else
+            lib.notify({
+                title = 'Return Vehicle',
+                description = 'Return the handler to the depot first',
+                type = 'error'
+            })
+        end
+    end
+end
+
+-- Container Handling
+local function HandleContainerAttachment(veh, objectId)
+    if IsControlJustPressed(0, 38) then
+        if not isAttached and IsHandlerFrameAboveContainer(veh, objectId) == 1 then
+            AttachContainerToHandlerFrame(veh, objectId)
+            isAttached = true
+            SetDeliveryWaypoint()
+            lib.notify({
+                title = 'Container Attached',
+                description = 'Deliver to marked location',
+                type = 'success'
+            })
+        else
+            DetachContainerFromHandlerFrame(veh)
+            isAttached = false
+            SetupContainerTarget()
+            lib.notify({
+                title = 'Container Detached',
+                description = 'Exit vehicle and process container',
+                type = 'inform'
+            })
+        end
+    end
+end
+
+-- Vehicle Spawning
+local function SpawnHandler()
+    local spawnPoint = vector4(1275.38, -3231.28, 5.9, 95.02)
+    local model = GetHashKey('Handler')
+    
+    RequestModel(model)
+    while not HasModelLoaded(model) do Wait(1) end
+    
+    handlerVehicle = CreateVehicle(model, spawnPoint.x, spawnPoint.y, spawnPoint.z, spawnPoint.w, true, false)
+    SetVehicleOnGroundProperly(handlerVehicle)
+    SetPedIntoVehicle(PlayerPedId(), handlerVehicle, -1)
+    
+    TriggerEvent('vehiclekeys:client:SetOwner', QBCore.Functions.GetPlate(handlerVehicle))
+end
+
+-- Random Events System
+local randomEvents = {
+    {
+        name = "Container Inspection",
+        duration = 15000,
+        bonus = 250,
+        handler = function()
+            lib.notify({
+                title = 'Priority Alert',
+                description = 'Container requires inspection before delivery',
+                type = 'inform'
+            })
+            
+            return function()
+                lib.progressCircle({
+                    duration = 15000,
+                    label = 'Container Inspection...',
+                    position = 'bottom',
+                    useWhileDead = false,
+                    canCancel = false,
+                })
+            end
+        end
+    },
+    {
+        name = "Priority Delivery",
+        duration = 0,
+        bonus = 500,
+        handler = function()
+            lib.notify({
+                title = 'Priority Delivery',
+                description = 'Bonus payment for quick delivery!',
+                type = 'success'
+            })
+            bonusTimeLimit = bonusTimeLimit * 0.7
+        end
+    }
+}
+
+function TriggerRandomEvent()
+    local event = randomEvents[math.random(#randomEvents)]
+    local eventHandler = event.handler()
+    
+    if eventHandler then
+        eventHandler()
+    end
+    
+    return event.bonus
+end
+
+local function UpdateContainerHealth(damage)
+    local currentHealth = Entity(currentContainer).state.health
+    local newHealth = math.max(0, currentHealth - damage)
+    Entity(currentContainer).state.health = newHealth
+    
+    if newHealth < 300 then
+        lib.notify({
+            title = 'Container Damage Warning',
+            description = 'Container heavily damaged! Handle with care!',
+            type = 'error'
+        })
+    end
+end
+
+-- Main Container Detection Thread
+Citizen.CreateThread(function()
+    while true do
+        local sleep = 1000
+        if isInJob then
+            local ped = PlayerPedId()
+            if IsPedInAnyVehicle(ped, false) then
+                local veh = GetVehiclePedIsIn(ped, false)
+                if GetEntityModel(veh) == GetHashKey('handler') then
+                    sleep = 0
+                    if currentContainer and DoesEntityExist(currentContainer) then
+                        local vehCoords = GetEntityCoords(veh)
+                        local containerCoords = GetEntityCoords(currentContainer)
+                        local distance = #(vehCoords - containerCoords)
+                        
+                        if distance <= 5.0 then
+                            DrawMarker(1, containerCoords.x, containerCoords.y, containerCoords.z - 1.0, 0, 0, 0, 0, 0, 0, 2.0, 2.0, 1.0, 255, 255, 0, 100, false, true, 2, false)
+                            
+                            if not isAttached then
+                                lib.showTextUI('[E] Attach Container')
+                                
+                                if IsControlJustPressed(0, 38) then
+                                    AttachContainerToHandlerFrame(veh, currentContainer)
+                                    isAttached = true
+                                    lib.hideTextUI()
+                                    SetDeliveryWaypoint()
+                                    lib.notify({
+                                        title = 'Container Attached',
+                                        description = 'Deliver to marked location',
+                                        type = 'success'
+                                    })
+                                end
+                            else
+                                lib.showTextUI('[E] Detach Container')
+                                
+                                if IsControlJustPressed(0, 38) then
+                                    DetachContainerFromHandlerFrame(veh)
+                                    isAttached = false
+                                    lib.hideTextUI()
+                                    SetupContainerTarget()
+                                    lib.notify({
+                                        title = 'Container Detached',
+                                        description = 'Exit vehicle and process container',
+                                        type = 'inform'
+                                    })
+                                end
+                            end
+                        else
+                            lib.hideTextUI()
+                        end
+                    end
+                end
+            else
+                lib.hideTextUI()
+            end
+        end
+        Wait(sleep)
+    end
+end)
+
+
+-- Add this after SpawnContainer function
+CreateThread(function()
+    while true do
+        Wait(0)
+        if currentContainer and DoesEntityExist(currentContainer) then
+            local ped = PlayerPedId()
+            if IsPedInAnyVehicle(ped, false) then
+                local veh = GetVehiclePedIsIn(ped, false)
+                if GetEntityModel(veh) == GetHashKey('handler') then
+                    local vehCoords = GetEntityCoords(veh)
+                    local containerCoords = GetEntityCoords(currentContainer)
+                    local distance = #(vehCoords - containerCoords)
+                        
+                    if not isAttached then
+                        if distance <= 7.0 then
+                            lib.showTextUI('[E] Pick Up Container')
+                            if IsControlJustPressed(0, 38) then
+                                AttachContainerToHandlerFrame(veh, currentContainer)
+                                isAttached = true
+                                lib.hideTextUI()
+                                SetDeliveryWaypoint()
+                            end
+                        end
+                    else
+                        lib.showTextUI('[E] Release Container')
+                        if IsControlJustPressed(0, 38) then
+                            DetachContainerFromHandlerFrame(veh)
+                            isAttached = false
+                            lib.hideTextUI()
+                            SetupContainerTarget()
+                        end
+                    end
+                end
+            else
+                lib.hideTextUI()
+            end
+        end
+    end
+end)
+    
+    
+    
+
+
+-- Delivery Points Thread
+Citizen.CreateThread(function()
+    while true do
+        local sleep = 1000
+        if isInJob and not isProcessingDelivery then
+            local ped = PlayerPedId()
+            local pedCoords = GetEntityCoords(ped)
+            
+            for _, point in pairs(deliveryPoints) do
+                DrawMarker(1, point.x, point.y, point.z-1.0, 0, 0, 0, 0, 0, 0, 5.0, 5.0, 1.0, 255, 0, 0, 100, true, false, 2, nil)
+                
+                if #(pedCoords - vector3(point.x, point.y, point.z)) < 5.0 then
+                    sleep = 0
+                    if not IsPedInAnyVehicle(ped, false) then
+                        SetupContainerTarget()
+                    end
+                end
+            end
+        end
+        Wait(sleep)
+    end
+end)
+
+CreateThread(function()
+    while true do
+        Wait(0)
+        if isInJob then
+            local ped = PlayerPedId()
+            if IsPedInAnyVehicle(ped, false) then
+                local veh = GetVehiclePedIsIn(ped, false)
+                if GetEntityModel(veh) == GetHashKey('handler') then
+                    local vehCoords = GetEntityCoords(veh)
+                    local spawnPoint = vector3(1275.38, -3231.28, 5.9)
+                    local distance = #(vehCoords - spawnPoint)
+                    
+                    if distance < 5.0 then
+                        lib.showTextUI('[E] Return Vehicle & End Job')
+                        if IsControlJustPressed(0, 38) then
+                            TriggerEvent('container:endJob')
+                            lib.hideTextUI()
+                        end
+                    else
+                        lib.hideTextUI()
+                    end
+                end
+            end
+        end
+    end
+end)
+
+
+-- Container Damage Thread
+Citizen.CreateThread(function()
+    while true do
+        Wait(100)
+        if currentContainer and isAttached then
+            if HasEntityCollidedWithAnything(currentContainer) then
+                local collisionForce = GetEntitySpeed(handlerVehicle)
+                local damage = math.floor(collisionForce * 10)
+                UpdateContainerHealth(damage)
+            end
+        end
+    end
+end)
+
+-- Start Job Event Handler
+RegisterNetEvent('container:startJob')
+AddEventHandler('container:startJob', function()
+    isInJob = true
+    deliveryCount = 0
+    SpawnHandler()
+    
+    CreateThread(function()
+        Wait(1500)
+        SpawnContainer()
+        
+        Wait(500)
+        if currentContainer then
+            local containerCoords = GetEntityCoords(currentContainer)
+            SetContainerWaypoint(containerCoords)
+        end
+        
+        maxDeliveries = math.random(1, 10)
+        lib.notify({
+            title = 'Job Started',
+            description = 'You need to deliver ' .. maxDeliveries .. ' containers',
+            type = 'inform'
+        })
+    end)
+end)
+
+RegisterNetEvent('container:endJob', function()
+    if DoesEntityExist(handlerVehicle) then
+        DeleteEntity(handlerVehicle)
+    end
+    if DoesEntityExist(currentContainer) then
+        DeleteEntity(currentContainer)
+    end
+    isInJob = false
+    deliveryCount = 0
+    lib.notify({
+        title = 'Job Ended',
+        description = 'You have ended your shift',
+        type = 'inform'
+    })
+end)
