@@ -348,7 +348,7 @@ Citizen.CreateThread(function()
     end
 end)
 
-Citizen.CreateThread(function()
+--[[Citizen.CreateThread(function()
     for businessName, business in pairs(Businesses.Businesses) do
         if business.blip then
             local blip = AddBlipForCoord(business.clockin.coords.x, business.clockin.coords.y, business.clockin.coords.z)
@@ -361,7 +361,7 @@ Citizen.CreateThread(function()
             SetBlipAsShortRange(blip, true)
         end
     end
-end)
+end)]]--
 
 RegisterNetEvent('v-businesses:ChargeCustomer', function(info)
     TriggerEvent(Businesses.ResturantBillingEvent)
@@ -709,7 +709,7 @@ end)
 
 -- Seller - auto goes to warehouse stock
 
-Citizen.CreateThread(function()
+--[[Citizen.CreateThread(function()
     if SellerBlip then
         RemoveBlip(SellerBlip)
     end
@@ -723,7 +723,7 @@ Citizen.CreateThread(function()
     BeginTextCommandSetBlipName("STRING")
     AddTextComponentString(Config.SellerBlip.label)
     EndTextCommandSetBlipName(SellerBlip)
-end)
+end)]]--
 
 Citizen.CreateThread(function()
     local pedModel = GetHashKey(Config.PedModel)
